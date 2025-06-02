@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.pkl
+*.pth
+*.png
+db.sqlite3
+media/
+.env
+node_modules/
+ml_model/*.keras
