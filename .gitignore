@@ -9,3 +9,4 @@ media/
 .env
 node_modules/
 ml_model/*.keras
+"backend_app/model/my_real_model.keras" 
