@@ -8,4 +8,4 @@ db.sqlite3
 media/
 .env
 node_modules/
-"backend_app/model/my_real_model.keras" 
+backend_app/model/my_real_model.keras 
