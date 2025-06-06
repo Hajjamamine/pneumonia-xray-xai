@@ -6,6 +6,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
+  const [gradCam, setGradCam] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
@@ -69,6 +70,32 @@ function App() {
       setResult(data);
     } catch (error) {
       setResult({ error: "Prediction failed. Please try again." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGradCam = async () => {
+    if (!selectedFile) return;
+
+    setLoading(true);
+    const formData = new FormData();
+    formData.append("image", selectedFile);
+
+    try {
+      const res = await fetch("http://localhost:8000/api/generate_grad_cam/", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      // Convert the hex-encoded heatmap back to a blob URL
+      const heatmapBlob = new Blob([Uint8Array.from(Buffer.from(data.heatmap, "hex"))], { type: "image/jpeg" });
+      const heatmapUrl = URL.createObjectURL(heatmapBlob);
+      setGradCam(heatmapUrl);
+    } catch (error) {
+      setGradCam(null);
+      alert("Failed to generate Grad-CAM heatmap. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -160,8 +187,9 @@ function App() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: preview ? 1 : 0 }}
-          className="mt-6"
+          className="mt-6 flex space-x-4"
         >
+          {/* Button for Prediction */}
           <button
             onClick={handleSubmit}
             disabled={loading || !preview}
@@ -199,6 +227,48 @@ function App() {
               <>
                 <FiActivity className="text-lg" />
                 <span>Run AI Analysis</span>
+              </>
+            )}
+          </button>
+
+          {/* Button for Grad-CAM */}
+          <button
+            onClick={handleGradCam}
+            disabled={loading || !preview}
+            className={`w-full py-3 px-6 rounded-xl font-bold text-lg flex items-center justify-center space-x-2 transition-all ${
+              loading
+                ? "bg-purple-600/50 cursor-not-allowed"
+                : "bg-gradient-to-r from-purple-500 to-cyan-600 hover:from-purple-600 hover:to-cyan-700 shadow-lg shadow-purple-500/20"
+            }`}
+          >
+            {loading ? (
+              <>
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <FiActivity className="text-lg" />
+                <span>Explain with Grad-CAM</span>
               </>
             )}
           </button>
@@ -278,6 +348,20 @@ function App() {
                       This result suggests possible pneumonia. Please consult a
                       healthcare professional for further evaluation.
                     </p>
+                  </div>
+                )}
+
+                {/* Display Grad-CAM Heatmap */}
+                {gradCam && (
+                  <div className="mt-6">
+                    <h4 className="text-lg font-bold text-cyan-400 mb-2">
+                      Grad-CAM Heatmap
+                    </h4>
+                    <img
+                      src={gradCam}
+                      alt="Grad-CAM Heatmap"
+                      className="w-full rounded-xl shadow-lg border border-gray-700"
+                    />
                   </div>
                 )}
               </div>
