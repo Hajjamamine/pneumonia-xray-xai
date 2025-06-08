@@ -11,4 +11,5 @@ for layer in resnet_layer.layers[::-1]:
     if 'conv' in layer.name:
         #print(f"Last conv layer inside ResNet50: {layer.name}")
         break
-model.get_layer('resnet50').summary()
+#model.get_layer('resnet50').summary()
+model.summary()

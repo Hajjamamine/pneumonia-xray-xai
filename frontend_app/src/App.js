@@ -6,8 +6,10 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
-  const [gradCam, setGradCam] = useState(null);
+  const [shapValues, setShapValues] = useState(null); // SHAP values state
+  const [shapImage, setShapImage] = useState(null); // SHAP heatmap
   const [loading, setLoading] = useState(false);
+  const [shapLoading, setShapLoading] = useState(false); // Separate loading state for SHAP
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
 
@@ -41,6 +43,10 @@ function App() {
   };
 
   const handleFile = (file) => {
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File size exceeds 10MB. Please upload a smaller file.");
+      return;
+    }
     setSelectedFile(file);
     setResult(null);
     setPreview(URL.createObjectURL(file));
@@ -75,29 +81,35 @@ function App() {
     }
   };
 
-  const handleGradCam = async () => {
+  const handleSHAP = async () => {
     if (!selectedFile) return;
 
-    setLoading(true);
+    setShapLoading(true);
     const formData = new FormData();
     formData.append("image", selectedFile);
 
     try {
-      const res = await fetch("http://localhost:8000/api/generate_grad_cam/", {
+      const res = await fetch("http://localhost:8000/api/shap/", {
         method: "POST",
         body: formData,
       });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to generate SHAP explanation.");
+      }
+
       const data = await res.json();
 
-      // Convert the hex-encoded heatmap back to a blob URL
-      const heatmapBlob = new Blob([Uint8Array.from(Buffer.from(data.heatmap, "hex"))], { type: "image/jpeg" });
-      const heatmapUrl = URL.createObjectURL(heatmapBlob);
-      setGradCam(heatmapUrl);
+      // Set SHAP values and heatmap for rendering
+      setShapValues(data.shap_values); // SHAP values
+      setShapImage(data.heatmap); // Base64-encoded heatmap
     } catch (error) {
-      setGradCam(null);
-      alert("Failed to generate Grad-CAM heatmap. Please try again.");
+      setShapValues(null);
+      setShapImage(null);
+      alert(error.message);
     } finally {
-      setLoading(false);
+      setShapLoading(false);
     }
   };
 
@@ -231,17 +243,17 @@ function App() {
             )}
           </button>
 
-          {/* Button for Grad-CAM */}
+          {/* Button for SHAP */}
           <button
-            onClick={handleGradCam}
-            disabled={loading || !preview}
+            onClick={handleSHAP}
+            disabled={shapLoading || !preview}
             className={`w-full py-3 px-6 rounded-xl font-bold text-lg flex items-center justify-center space-x-2 transition-all ${
-              loading
+              shapLoading
                 ? "bg-purple-600/50 cursor-not-allowed"
                 : "bg-gradient-to-r from-purple-500 to-cyan-600 hover:from-purple-600 hover:to-cyan-700 shadow-lg shadow-purple-500/20"
             }`}
           >
-            {loading ? (
+            {shapLoading ? (
               <>
                 <svg
                   className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
@@ -268,7 +280,7 @@ function App() {
             ) : (
               <>
                 <FiActivity className="text-lg" />
-                <span>Explain with Grad-CAM</span>
+                <span>Explain with SHAP</span>
               </>
             )}
           </button>
@@ -351,17 +363,23 @@ function App() {
                   </div>
                 )}
 
-                {/* Display Grad-CAM Heatmap */}
-                {gradCam && (
+                {/* Display SHAP Explanation */}
+                {shapImage && (
                   <div className="mt-6">
                     <h4 className="text-lg font-bold text-cyan-400 mb-2">
-                      Grad-CAM Heatmap
+                      SHAP Explanation
                     </h4>
-                    <img
-                      src={gradCam}
-                      alt="Grad-CAM Heatmap"
-                      className="w-full rounded-xl shadow-lg border border-gray-700"
-                    />
+                    <p className="text-gray-400 text-sm mb-4">
+                      The SHAP heatmap highlights the regions of the X-ray that
+                      contributed most to the model's prediction.
+                    </p>
+                    <div className="relative">
+                      <img
+                        src={`data:image/png;base64,${shapImage}`}
+                        alt="SHAP Heatmap"
+                        className="w-full rounded-xl shadow-lg border border-gray-700"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
